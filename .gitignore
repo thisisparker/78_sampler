@@ -1,0 +1,8 @@
+*.yaml
+*.mp3
+*.jpg
+*.mp4
+*~
+*.swp
+__pycache__/*
+
