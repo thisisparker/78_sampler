@@ -70,10 +70,10 @@ def main():
 
     print('rendering rotating record')
 
-    for angle in range(0,360):
+    for index, angle in enumerate(range(0,360,3)):
         rot = recimg.rotate(-angle)
         rot.paste((255,252,233), mask=mat)
-        filename = 'img{:04d}.jpg'.format(abs(angle))
+        filename = 'img{:04d}.jpg'.format(index)
         rot.save(os.path.join('temp', filename))
     
     print("rolling video of",to_dl.name,sep=" ")
