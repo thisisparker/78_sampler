@@ -3,13 +3,14 @@
 import internetarchive as ia
 import os
 import random
+import shutil
 import subprocess
 import yaml
 
 from operator import attrgetter
 
 from mutagen.mp3 import MP3
-from PIL import Image
+from PIL import Image, ImageDraw, ImageOps
 from twython import Twython
 
 from georgeblood import blood
@@ -37,6 +38,8 @@ def main():
     artists = item.metadata.get('creator')
     artists = ', '.join(artists) if type(artists) is list else artists
 
+    date = item.metadata.get('date')
+
     url = "https://archive.org/details/" + to_dl.identifier
 
     print("downloading", title)
@@ -51,12 +54,32 @@ def main():
     else:
         timeout = 140
         fade = True
+
+    if os.path.exists('temp'):
+        shutil.rmtree('temp')
+
+    os.makedirs('temp')
+
+    size = (720,720)
+    recimg = Image.open(photo.name)
+    recimg = ImageOps.fit(recimg, size)
+
+    mat = Image.new('L', size, color=255)
+    draw = ImageDraw.Draw(mat)
+    draw.ellipse((72,72) + (size[0]-72, size[1]-72), fill=0)
+
+    print('rendering rotating record')
+
+    for angle in range(0,360):
+        rot = recimg.rotate(-angle)
+        rot.paste((255,252,233), mask=mat)
+        filename = 'img{:04d}.jpg'.format(abs(angle))
+        rot.save(os.path.join('temp', filename))
     
     print("rolling video of",to_dl.name,sep=" ")
 
     command = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'panic']
-    command.extend(['-i', to_dl.name, '-loop', '1', '-i', photo.name])
-    command.extend(['-vf', 'scale=-1:480,pad=720:ih:(ow-iw)/2,fps=25'])
+    command.extend(['-i', to_dl.name, '-loop', '1', '-i', 'temp/img%04d.jpg'])
     if fade:
         command.extend(['-af','afade=t=out:st=138:d=2'])        
     command.extend(['-strict', '-2', '-ss', '0', '-to', str(timeout), 'merge.mp4'])
@@ -66,7 +89,7 @@ def main():
     os.remove(to_dl.name)
     os.remove(photo.name)
 
-    print(title.lower(), url, "merge.mp4", sep=" ")
+    shutil.rmtree('temp')
 
     with open('config.yaml') as f:
         config = yaml.safe_load(f)
