@@ -1,19 +1,51 @@
 #!/usr/bin/env python3
 
 import internetarchive as ia
+import cv2
 import os
+import numpy as np
 import random
 import shutil
 import subprocess
+import sys
 import yaml
 
 from operator import attrgetter
 
+from colorthief import ColorThief
 from mutagen.mp3 import MP3
 from PIL import Image, ImageDraw, ImageOps
 from twython import Twython
 
 from georgeblood import blood
+
+def get_label_circle(fullsize_path):
+    fullsize = Image.open(fullsize_path)
+    fullsize_dimensions = fullsize.size
+
+    ratio = fullsize_dimensions[0]/640
+
+    crop = ImageOps.fit(fullsize, (640,640))
+    filename = '640_' + fullsize_path
+    crop.save(filename)
+
+    src = cv2.imread(filename)
+    blur = cv2.medianBlur(src, 5)
+    gray = cv2.cvtColor(blur, cv2.COLOR_RGBA2GRAY)
+
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 100,
+                               param1=150, param2=50, minRadius=150, maxRadius=225)
+
+    os.remove(filename)
+
+    if circles is not None:
+        circles = np.round(circles[0,:]).astype('int')
+        x, y, r = [int(val * ratio) for val in circles.tolist()[0]]
+
+        return x, y, r
+
+    else:
+        return None
 
 def main():
     abspath = os.path.abspath(__file__)
@@ -60,20 +92,40 @@ def main():
 
     os.makedirs('temp')
 
+    center_x, center_y, radius = get_label_circle(photo.name)
+
+    radius += 20
+
+    raw_img = Image.open(photo.name)
+    label_crop = raw_img.crop((center_x - radius, center_y - radius,
+                                 center_x + radius, center_y + radius))
+
+    label_crop.save('label.jpg')
+    colorthief = ColorThief('label.jpg')
+    dominant = colorthief.get_color(quality=1)
+    os.remove('label.jpg')
+
+    label_crop = ImageOps.fit(label_crop, (400,400))
+    label_mask = Image.new('L', (400,400), color=0)
+    draw = ImageDraw.Draw(label_mask)
+    draw.ellipse((0,0,400,400), fill=255)
+
     size = (720,720)
-    recimg = Image.open(photo.name)
-    recimg = ImageOps.fit(recimg, size)
+
+    recimg = Image.new('RGB', size, 0)
+    recimg.paste(label_crop, box=(160,160), mask=label_mask)
 
     mat = Image.new('L', size, color=255)
     draw = ImageDraw.Draw(mat)
-    draw.ellipse((72,72) + (size[0]-72, size[1]-72), fill=0)
+    draw.ellipse((36,36) + (size[0]-36, size[1]-36), fill=0)
 
     print('rendering rotating record')
 
-    for angle in range(0,360):
+    for index, angle in enumerate(range(0,360,3)):
         rot = recimg.rotate(-angle)
-        rot.paste((255,252,233), mask=mat)
-        filename = 'img{:04d}.jpg'.format(abs(angle))
+        #rot.paste((255,252,233), mask=mat)
+        rot.paste(dominant, mask=mat)
+        filename = 'img{:04d}.jpg'.format(index)
         rot.save(os.path.join('temp', filename))
     
     print("rolling video of",to_dl.name,sep=" ")
