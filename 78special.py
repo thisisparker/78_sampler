@@ -17,10 +17,10 @@ from mutagen.mp3 import MP3
 from PIL import Image, ImageDraw, ImageOps
 from twython import Twython
 
-from georgeblood import blood
-
 def get_items_list():
-    return [item['identifier'] for item in blood]
+    with open('georgeblood.txt', 'r') as f:
+        items = [item.strip() for item in f.readlines()]
+    return items
 
 def get_item(items):
     return random.choice(items)
@@ -76,18 +76,15 @@ def get_color(image, cleanup=True):
     colorthief = ColorThief('label.jpg')
     if cleanup:
         os.remove('label.jpg')
-    palette = colorthief.get_palette(color_count=2, quality=1)
+    palette = colorthief.get_palette(color_count=3, quality=1)
     for color in palette:
-        if all(channel < 64 for channel in color):
-            dominant = (255, 252, 233)
-            continue
-        else:
+        if all(channel >= 64 for channel in color):
             dominant = color
             break
-    if dominant is None:
-        return (255, 252, 233)
     else:
-        return dominant
+        dominant = (255,252,233)
+
+    return dominant
 
 def render_record_frames(label_crop, bg_color, size=(720,720), degrees_per_frame=3,
                          directory="temp"):
@@ -116,7 +113,7 @@ def render_record_frames(label_crop, bg_color, size=(720,720), degrees_per_frame
 def render_video(image_directory, audio_file, max_time=140, output_file='merge.mp4'):
     audio = MP3(audio_file)
 
-    if audio.info.length < max_time:
+    if max_time == 0 or audio.info.length < max_time:
         timeout = audio.info.length
         fade = False
     else:
@@ -161,13 +158,13 @@ def run(ia_id=None, cleanup=True, to_tweet=True, quiet=False, maxlength=140, rpm
     photo = get_image(files)
     track = get_audio(files)
 
-    title = item.metadata.get('title')
+    title = item.metadata.get('title', '')
     date = item.metadata.get('date', '')
 
     date = ''.join(['(', date.split('-')[0], ')']) if date else ''
     title = ' '.join([title, date]) if date else title
 
-    artists = item.metadata.get('creator')
+    artists = item.metadata.get('creator', '')
     artists = artists[0] if type(artists) is list else artists
 
     url = "https://archive.org/details/" + item.identifier
