@@ -89,7 +89,7 @@ def get_color(image, cleanup=True):
     else:
         return dominant
 
-def render_record_frames(label_crop, bg_color, size=(720,720), angles_per_frame=3,
+def render_record_frames(label_crop, bg_color, size=(720,720), degrees_per_frame=3,
                          directory="temp"):
     label_crop = ImageOps.fit(label_crop, (400,400))
     label_mask = Image.new('L', (400,400))
@@ -103,11 +103,15 @@ def render_record_frames(label_crop, bg_color, size=(720,720), angles_per_frame=
     draw = ImageDraw.Draw(mat)
     draw.ellipse((36,36,684,684), fill=0)
 
-    for index, angle in enumerate(range(0, 360, angles_per_frame)):
+    angle = 0
+    index = 0
+    while angle % 360 or angle == 0:
         rot = recimg.rotate(-angle)
         rot.paste(bg_color, mask=mat)
         filename = 'img{:04d}.jpg'.format(index)
         rot.save(os.path.join(directory, filename))
+        index += 1
+        angle += degrees_per_frame
 
 def render_video(image_directory, audio_file, max_time=140, output_file='merge.mp4'):
     audio = MP3(audio_file)
@@ -123,7 +127,7 @@ def render_video(image_directory, audio_file, max_time=140, output_file='merge.m
     command.extend(['-i', audio_file, '-loop', '1',
                     '-i', '{}/img%04d.jpg'.format(image_directory)])
     if fade:
-        command.extend(['-af','afade=t=out:st=138:d=2'])        
+        command.extend(['-af','afade=t=out:st={}:d=3'.format(str(max_time-2))])
     command.extend(['-strict', '-2', '-ss', '0', '-to', str(timeout), output_file])
 
     subprocess.run(command)
@@ -146,7 +150,7 @@ def post_tweet(status, video_file):
     twitter.update_status(status=status, media_ids=[response['media_id']])
 
 
-def run(ia_id=None, cleanup=True, to_tweet=True, quiet=False):
+def run(ia_id=None, cleanup=True, to_tweet=True, quiet=False, maxlength=140, rpm=78):
     if ia_id is None:
         items = get_items_list()
         ia_id = get_item(items)
@@ -189,13 +193,17 @@ def run(ia_id=None, cleanup=True, to_tweet=True, quiet=False):
     label_crop = crop_label(photo.name, center_x, center_y, radius)
     bg_color = get_color(label_crop, cleanup)
 
+    seconds_per_rotation = 60/rpm
+    frames_per_rotation = seconds_per_rotation * 25
+    degrees_per_frame = int(360/frames_per_rotation)
+
     if not quiet:
         print("rendering spinning record frames")
-    render_record_frames(label_crop, bg_color)
+    render_record_frames(label_crop, bg_color, degrees_per_frame=degrees_per_frame)
 
     if not quiet:
         print("rendering video")
-    render_video('temp', track.name)
+    render_video('temp', track.name, max_time=maxlength)
 
     if cleanup:
         os.remove(track.name)
@@ -225,18 +233,25 @@ def main():
                         do not tweet""")
     parser.add_argument('-q', '--quiet', action='store_true',
                         help="""suppress progress output""")
+    parser.add_argument('-m', '--maxlength', action='store', type=int, default=140,
+                        help="""set the max length of the video in seconds (default 140)""")
+    parser.add_argument('-r', '--rpm', action='store', type=float, default=12.5,
+                        help="""set revolutions per minute of spinning disc""")
 
     args = parser.parse_args()
     cleanup = not args.keep
     ia_id = args.id
     to_tweet = not args.dryrun
     quiet = args.quiet
+    maxlength = args.maxlength
+    rpm = args.rpm
 
     abspath = os.path.abspath(__file__)
     dname = os.path.dirname(abspath)
     os.chdir(dname)
 
-    run(ia_id, cleanup, to_tweet, quiet)
+    run(ia_id=ia_id, cleanup=cleanup, to_tweet=to_tweet,
+            quiet=quiet, maxlength=maxlength, rpm=rpm)
 
 if __name__ == '__main__':
     main()
