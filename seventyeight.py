@@ -46,11 +46,11 @@ def get_label_circle(fullsize_path):
     crop.save(filename)
 
     src = cv2.imread(filename)
-    blur = cv2.medianBlur(src, 5)
+    blur = cv2.medianBlur(src, 3)
     gray = cv2.cvtColor(blur, cv2.COLOR_RGBA2GRAY)
 
-    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 100,
-                               param1=150, param2=50, minRadius=150, maxRadius=225)
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 200,
+                               param1=150, param2=130, minRadius=160, maxRadius=320)
 
     os.remove(filename)
 
@@ -76,9 +76,9 @@ def get_color(image, cleanup=True):
     colorthief = ColorThief('label.jpg')
     if cleanup:
         os.remove('label.jpg')
-    palette = colorthief.get_palette(color_count=3, quality=1)
+    palette = colorthief.get_palette(color_count=2, quality=1)
     for color in palette:
-        if all(channel >= 64 for channel in color):
+        if not all(channel < 64 for channel in color):
             dominant = color
             break
     else:
