@@ -50,13 +50,13 @@ def get_label_circle(fullsize_path):
     gray = cv2.cvtColor(blur, cv2.COLOR_RGBA2GRAY)
 
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 200,
-                               param1=150, param2=130, minRadius=160, maxRadius=320)
+                               param1=150, param2=130, minRadius=150, maxRadius=320)
 
     os.remove(filename)
 
     if circles is not None:
         circles = np.round(circles[0,:]).astype('int')
-        x, y, r = [int(val * ratio) for val in circles.tolist()[0]]
+        x, y, r = [int(val * ratio) for val in max(circles.tolist(), key=lambda c: c[2])]
 
         return x, y, r
 
