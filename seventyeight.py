@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import glob
 import random
 import shutil
 import subprocess
@@ -87,7 +88,7 @@ def get_color(image, cleanup=True):
     return dominant
 
 def render_record_frames(label_crop, bg_color, size=(720,720), degrees_per_frame=3,
-                         directory="temp"):
+                         max_time=140, directory="temp"):
     label_crop = ImageOps.fit(label_crop, (400,400))
     label_mask = Image.new('L', (400,400))
     draw = ImageDraw.Draw(label_mask)
@@ -102,9 +103,23 @@ def render_record_frames(label_crop, bg_color, size=(720,720), degrees_per_frame
 
     angle = 0
     index = 0
-    while angle % 360 or angle == 0:
+    grooves = sorted(glob.glob('grooves/*'))
+    shines = sorted(glob.glob('shine/*'))
+
+    while index <= 25 * max_time and (angle % 360 or angle == 0 or grooves or shines):
         rot = recimg.rotate(-angle)
         rot.paste(bg_color, mask=mat)
+        if not grooves:
+            grooves = sorted(glob.glob('grooves/*'))
+        if not shines:
+            shines = sorted(glob.glob('shine/*'))
+
+        groove_mask = ImageOps.invert(Image.open(grooves.pop(0)).convert(mode='L'))
+        shine_mask = ImageOps.invert(Image.open(shines.pop(0)).convert(mode='L'))
+
+        rot.paste(bg_color, mask=groove_mask)
+        rot.paste(bg_color, mask=shine_mask)
+
         filename = 'img{:04d}.jpg'.format(index)
         rot.save(os.path.join(directory, filename))
         index += 1
@@ -196,7 +211,8 @@ def run(ia_id=None, cleanup=True, to_tweet=True, quiet=False, maxlength=140, rpm
 
     if not quiet:
         print("rendering spinning record frames")
-    render_record_frames(label_crop, bg_color, degrees_per_frame=degrees_per_frame)
+    render_record_frames(label_crop, bg_color, 
+                         degrees_per_frame=degrees_per_frame, max_time=maxlength)
 
     if not quiet:
         print("rendering video")
