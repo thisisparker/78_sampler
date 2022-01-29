@@ -47,11 +47,11 @@ def get_label_circle(fullsize_path):
     crop.save(filename)
 
     src = cv2.imread(filename)
-    blur = cv2.medianBlur(src, 3)
+    blur = cv2.medianBlur(src, 5)
     gray = cv2.cvtColor(blur, cv2.COLOR_RGBA2GRAY)
 
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 200,
-                               param1=150, param2=130, minRadius=150, maxRadius=320)
+                               param1=150, param2=70, minRadius=150, maxRadius=320)
 
     os.remove(filename)
 
@@ -103,16 +103,16 @@ def render_record_frames(label_crop, bg_color, size=(720,720), degrees_per_frame
 
     angle = 0
     index = 0
-    grooves = sorted(glob.glob('grooves/*'))
-    shines = sorted(glob.glob('shine/*'))
+    grooves = []
+    shines = []
 
     while index <= 25 * max_time and (angle % 360 or angle == 0 or grooves or shines):
         rot = recimg.rotate(-angle)
         rot.paste(bg_color, mask=mat)
         if not grooves:
-            grooves = sorted(glob.glob('grooves/*'))
+            grooves = sorted(glob.glob('grooves/*'), reverse=True)
         if not shines:
-            shines = sorted(glob.glob('shine/*'))
+            shines = sorted(glob.glob('shine/*'), reverse=True)
 
         groove_mask = ImageOps.invert(Image.open(grooves.pop(0)).convert(mode='L'))
         shine_mask = ImageOps.invert(Image.open(shines.pop(0)).convert(mode='L'))
