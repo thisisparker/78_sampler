@@ -5,4 +5,4 @@
 *~
 *.swp
 __pycache__/*
-
+exclude.txt
