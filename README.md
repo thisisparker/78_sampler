@@ -10,8 +10,8 @@ ia search collection:georgeblood --itemlist > georgeblood.txt
 
 Note that the collection currently contains over 300,000 items, so it is normal for that command to take some time to run.
 
-The collection contains some items I never want the bot to tweet; I maintain a file called `exclude.txt` with a series of strings that should not appear. I apply the filter with a simple grep:
+The collection contains some items I never want the bot to tweet; I maintain a file called `exclude.txt` with a series of strings that should not appear. I apply the filter in line with the request with a simple grep:
 
 ```
-grep -iv -f exclude.txt georgeblood.txt
+ia search collection:georgeblood --itemlist | grep -iv -f exclude.txt > georgeblood.txt
 ```
